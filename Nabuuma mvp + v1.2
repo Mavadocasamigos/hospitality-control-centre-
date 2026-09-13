@@ -1,0 +1,150 @@
+• Supplier marketplace and delivery dispatch
+• POS replacement and payment processing
+• Consumer social/community layer
+• Complex accounting
+• Automated supplier ordering
+• Advanced predictive AI
+• Native mobile apps (responsive web first)
+2. Architecture & Principles
+BUSINESS → PRODUCT → RECIPE VERSION → INGREDIENTS / COST / SOP / TRAINING / QC
+↓
+STAFF + INVENTORY
+↓
+PERFORMANCE DATA
+• Every business-owned record is tenant-isolated.
+• Published recipe versions are immutable; edits create a new version.
+• Costs use purchase price, pack size and usable yield.
+• Staff see the current published recipe by default.
+• Important actions are timestamped and attributable.
+• Mobile-responsive web is mandatory for workstation use.
+3. Information Architecture
+Area MVP screens Primary actions
+Auth Sign in, reset, invitation Authenticate
+Dashboard Overview, alerts, quick actions Monitor
+Products List, detail, create/edit, versions Control recipes
+Ingredients List, detail, price history Cost inputs
+Inventory Stock, movements, waste Record stock
+Staff Team, profile, certifications People
+Training Assignments, modules, assessments Train/certify
+Quality QC queue, form, history Verify service
+Settings Business, roles, units, QR Configure
+Global UI rules
+• One clear primary CTA per screen.
+• Destructive actions require confirmation.
+• Show Draft / Active / Archived status clearly.
+• Money displays currency and two decimals.
+• Units are explicit: g, kg, ml, L, piece, portion.
+• Global search finds products, ingredients and staff by name or ID.Nabuuma MVP Specification - v1.0 1
+4. Screen Specifications
+4.1 Authentication
+Screen Fields Rules
+Sign in Email, password Reset available; clear validation
+Invitation Name, password Accept invitation; business role assigned
+Password reset Email; new password Secure reset flow
+4.2 Dashboard
+Widgets: active products, active recipes, average cost %, low-stock count, QC pass rate, training completion, recent waste
+and recent activity. Quick actions: New Product, Add Ingredient, Stock Movement, Assign Training, QC Check.
+If a required input is missing, show Not configured, not a misleading zero.
+4.3 Product fields
+Field Type Required / rule
+Product ID Auto NBV-###, unique per business
+Name Text Required
+Category Select Required
+Description Text Optional
+Status Enum Draft / Active / Archived
+Current version Relation Auto
+Selling price Money Optional; needed for margin
+Glassware Text Optional
+Garnish Text Optional
+Target service time Seconds Optional
+Product detail tabs: Overview • Recipe • Cost • SOP • Training • QC • History.
+4.4 Recipe Builder
+Field Type Rule
+Version Auto v1.0, v1.1 etc.
+Yield Number + unit Required; >0
+Ingredient lines Relation At least one
+Quantity Decimal Required; >0
+Unit Enum g/kg/ml/L/piece/portion
+Method steps Ordered text At least one
+Ice / garnish Structured/text Optional but recommended
+Notes Text Optional
+Workflow: Save Draft → Calculate Cost → Test → Submit → Approve → Publish. Only the published version is
+operational for staff.
+Critical: a published version cannot be edited in place. Create a new version.
+4.5 Ingredient Management
+Field Type Rule
+Ingredient ID Auto Unique per business
+Name Text Required
+Category Select Required
+Purchase unit Enum kg/L/piece/etc.
+Pack size Decimal RequiredNabuuma MVP Specification - v1.0 2
+Field Type Rule
+Purchase price Money Required
+Supplier Relation Optional in MVP
+Usable yield % Decimal Required where yield-sensitive
+Minimum stock Decimal Optional
+Storage note Text Optional
+Keep price history. Current price may change current costing; historical versions retain their recorded cost snapshot.
+
+Nabuuma Recipe Control — V1.2 Real Data Engine
+V1.2 connects the operating interface to a real Supabase/PostgreSQL data layer. This is a production-oriented foundation for the first hospitality pilot.
+What changed
+Supabase Auth with protected application routes
+First-login workspace bootstrap through create_business()
+Multi-tenant business_id model
+PostgreSQL Row Level Security (RLS) on every tenant-owned table
+Role-aware write policies for owner / manager / trainer / staff
+Real Products → Recipe Versions → Recipe Ingredients relationships
+Database-enforced published recipe immutability
+Database transaction for publishing a recipe version and setting the active recipe
+Ingredient purchase pricing persisted in PostgreSQL
+Recipe cost view using the latest effective ingredient price
+Inventory as movement ledger, with stock derived from movements
+Real QC/service records consumed by dashboard metrics
+Staff-safe QR route that does not query or display cost/supplier pricing
+Audit event writes for key UI actions
+Billing/subscription table retained as integration-ready architecture
+Setup
+Create a Supabase project.
+In Supabase SQL Editor, run supabase/schema.sql.
+Copy .env.example to .env.local.
+Fill NEXT_PUBLIC_SUPABASE_URL and NEXT_PUBLIC_SUPABASE_ANON_KEY (or Supabase publishable key).
+Run npm install.
+Run npm run dev.
+First-run behavior
+A user can sign up from /login. On the first authenticated visit, the app calls create_business() and creates:
+one business workspace
+owner membership
+pilot subscription record
+This keeps business creation atomic and avoids asking the browser to perform a sequence of privileged inserts.
+Data rules
+Every tenant table contains business_id.
+RLS is the security boundary; the browser never receives a service-role key.
+Staff can read tenant records and create service/QC/inventory events, but pricing/product-authoring mutations are restricted by role.
+Published recipe versions cannot be updated or deleted at database level.
+Cost calculations do not silently convert mass ↔ volume. Recipe units should match ingredient base units unless an explicit conversion layer is later introduced.
+Inventory stock is derived from movement records rather than stored as an editable balance.
+Production hardening still required
+Before a paid deployment, add:
+Supabase Auth email/redirect configuration and custom SMTP
+server-side audit triggers for tamper-resistant critical audit trails
+rate limiting / abuse controls
+automated database backups and restore drills
+automated tests against a disposable Supabase project
+monitoring and error tracking
+billing provider webhook handlers
+invitation flow for adding business members
+explicit recipe cost API if the UI needs historical cost snapshots
+Acceptance tests
+Sign up → first dashboard visit creates exactly one workspace.
+Second authenticated request returns the existing membership rather than creating a second business.
+User A cannot select Business B rows through the API.
+Staff cannot create/edit products or supplier pricing.
+Trainer/manager can create recipes.
+Draft recipe can be published through publish_recipe().
+Published recipe update/delete raises a database exception.
+Ingredient price changes affect current recipe cost view without rewriting historical recipe formulas.
+Inventory stock is the signed sum of movement records.
+QR service view exposes method/glass/ice/garnish/ingredients but not cost or supplier pricing.
+Product principle
+Know the recipe. Know the cost. Control the standard.
